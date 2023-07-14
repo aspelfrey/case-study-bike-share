@@ -1,0 +1,282 @@
+---
+title: "Case Study: How Does a Bike-Share Navigate Speedy Success?"
+author: "Athena Pelfrey"
+date: "June 23, 2023"
+output: html_notebook
+---
+
+```{r importing packages, include=FALSE}
+
+# Clear workspace
+rm(list = ls()) 
+
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(mosaic)
+library(presenter)
+```
+
+
+
+# Introduction
+
+This case study was based on an assignment in the Coursera course *Google Data Analytics Capstone: A Complete Case Study*. 
+
+**About the Company: ** In 2016, Cyclistic launched a successful bike-share offering. Since then, the program has grown to a fleet of 5,824 bicycles that
+are geotracked and locked into a network of 692 stations across Chicago. The bikes can be unlocked from one station and
+returned to any other station in the system anytime.
+
+**Company Goal:** Design marketing strategies aimed at converting casual riders into annual members.
+
+**Questions:** Three questions will guide the future marketing program:
+
+1. How do annual members and casual riders use Cyclistic bikes differently?
+2. Why would casual riders buy Cyclistic annual memberships?
+3. How can Cyclistic use digital media to influence casual riders to become members?
+
+**Task:** Produce a report with the following deliverables to answer the first question.
+
+1. A clear statement of the business task
+2. A description of all data sources used
+3. Documentation of any cleaning or manipulation of data
+4. A summary of your analysis
+5. Supporting visualizations and key findings
+6. Your top three recommendations based on your analysis
+
+
+# Data Importing and Cleaning
+Steps:
+
+- Import data for 2019
+- Rename columns for consistency
+- Change data types for consistency
+- Combine datasets to a single dataframe
+- Add new columns for month, day, hour, and day_of_week
+- Filter out trips longer than 24 hours
+
+Here is a quick look at this dataset.
+```{r data wrangling, include=FALSE, message=FALSE, warning=FALSE}
+# Import data
+q1_2019 <- read_csv("/Users/aspelfrey/Desktop/CaseStudyCoursera/Data/Divvy_Trips_2019_Q1.csv")
+q2_2019 <- read_csv("/Users/aspelfrey/Desktop/CaseStudyCoursera/Data/Divvy_Trips_2019_Q2.csv")
+q3_2019 <- read_csv("/Users/aspelfrey/Desktop/CaseStudyCoursera/Data/Divvy_Trips_2019_Q3.csv")
+q4_2019 <- read_csv("/Users/aspelfrey/Desktop/CaseStudyCoursera/Data/Divvy_Trips_2019_Q4.csv")
+
+# Rename columns for consistency.
+q1_2019 <- rename(q1_2019
+                  ,started_at = start_time  
+                  ,ended_at = end_time  
+                  ,trip_duration = tripduration
+                  ,bike_id = bikeid
+                  ,start_station_name = from_station_name 
+                  ,start_station_id = from_station_id 
+                  ,end_station_name = to_station_name
+                  ,end_station_id = to_station_id 
+                  ,user_type = usertype
+                  ,birth_year = birthyear
+                  )
+
+q3_2019 <- rename(q3_2019
+                  ,started_at = start_time  
+                  ,ended_at = end_time  
+                  ,trip_duration = tripduration
+                  ,bike_id = bikeid
+                  ,start_station_name = from_station_name 
+                  ,start_station_id = from_station_id 
+                  ,end_station_name = to_station_name
+                  ,end_station_id = to_station_id 
+                  ,user_type = usertype
+                  ,birth_year = birthyear
+                  )
+q4_2019 <- rename(q4_2019
+                  ,started_at = start_time  
+                  ,ended_at = end_time  
+                  ,trip_duration = tripduration
+                  ,bike_id = bikeid
+                  ,start_station_name = from_station_name 
+                  ,start_station_id = from_station_id 
+                  ,end_station_name = to_station_name
+                  ,end_station_id = to_station_id 
+                  ,user_type = usertype
+                  ,birth_year = birthyear
+                  )
+
+q2_2019 <- rename(q2_2019
+                  ,trip_id = "01 - Rental Details Rental ID"
+                  ,started_at = "01 - Rental Details Local Start Time"
+                  ,ended_at = "01 - Rental Details Local End Time"  
+                  ,trip_duration = "01 - Rental Details Duration In Seconds Uncapped"
+                  ,bike_id = "01 - Rental Details Bike ID" 
+                  ,start_station_name = "03 - Rental Start Station Name"
+                  ,start_station_id = "03 - Rental Start Station ID" 
+                  ,end_station_name = "02 - Rental End Station Name" 
+                  ,end_station_id = "02 - Rental End Station ID" 
+                  ,user_type = "User Type"
+                  ,gender = "Member Gender" 
+                  ,birth_year = "05 - Member Details Member Birthday Year" 
+                  )
+
+# Change data types for consistency
+q1_2019 <-  mutate(q1_2019, trip_id = as.character(trip_id)
+                   ,bike_id = as.character(bike_id))
+q2_2019 <-  mutate(q2_2019, trip_id = as.character(trip_id)
+                   ,bike_id = as.character(bike_id))
+q3_2019 <-  mutate(q3_2019, trip_id = as.character(trip_id)
+                   ,bike_id = as.character(bike_id))
+q4_2019 <-  mutate(q4_2019, trip_id = as.character(trip_id)
+                   ,bike_id = as.character(bike_id))
+
+```
+
+```{r combine datasets, echo=FALSE}
+# Combine datasets
+
+all_trips <- bind_rows(q1_2019, q2_2019, q3_2019, q4_2019)
+
+# Rename user types
+all_trips <- all_trips |> 
+  mutate(user_type = 
+           case_when(user_type == 'Subscriber' ~ 'Member',
+                     user_type == 'Customer' ~ 'Casual'),
+         trip_duration = hms::as_hms(trip_duration))
+all_trips <- all_trips |>
+  mutate(year = format(as.Date(started_at),"%Y")) |>
+  mutate(month = format(as.Date(started_at),"%m")) |>
+  mutate(day = format(as.Date(started_at),"%d")) |>
+  mutate(hour = format(as.POSIXct(started_at),"%H")) |>
+  mutate(day_of_week = format(as.Date(started_at),"%A"))
+
+head(all_trips)
+```
+
+Quick summaries of data.
+```{r echo=FALSE}
+summary(all_trips)
+```
+
+
+Retrieve statistics for **trip duration** grouped by user type.
+```{r echo=FALSE}
+all_trips %>%
+   group_by(user_type) %>%
+   summarise("count" = n(),
+             "mean" = hms::as_hms(mean(trip_duration)), 
+             "median" = hms::as_hms(median(trip_duration)),
+             "min" = hms::as_hms(min(trip_duration)),
+             "max" = hms::as_hms(max(trip_duration))) %>%
+  pivot_summary()
+```
+Filter out all trips lasting longer than 24 hours. 
+```{r echo=FALSE}
+n_mem_filtered <- sum(all_trips_v2$user_type=='Member')
+n_cas_filtered <- sum(all_trips_v2$user_type=='Casual')
+n_mem_all <- sum(all_trips$user_type=='Member')
+n_cas_all <- sum(all_trips$user_type=='Casual')
+
+col_n_filtered <- c(n_mem_filtered, n_cas_filtered)
+col_n_all <- c(n_mem_all, n_cas_all)
+col_pct_filtered <- col_n_filtered/col_n_all
+
+data.frame("Total Trips" = col_n_all, "Trips less 24 hrs" = col_n_filtered, "Percentage" = col_pct_filtered)
+```
+Summarize Trip Duration for Filtered data
+```{r echo=FALSE}
+all_trips_v2 <- filter(all_trips, trip_duration<=hms::as_hms('24:00:00'))
+
+all_trips_v2 %>%
+   group_by(user_type) %>%
+   summarise("count" = n(),
+             "mean" = hms::as_hms(mean(trip_duration)), 
+             "median" = hms::as_hms(median(trip_duration)),
+             "min" = hms::as_hms(min(trip_duration)),
+             "max" = hms::as_hms(max(trip_duration))) %>%
+  pivot_summary()
+```
+
+
+# Data Analysis: Day of Week
+
+Retrieve statistics for **number of rides** and **trip duration** grouped by **user type** and **day of week**.
+```{r echo=FALSE}
+options(dplyr.summarise.inform = FALSE)
+
+level_order = c("Sunday", "Monday", "Tuesday", "Wednesday","Thursday", "Friday", "Saturday")
+
+trips_by_day_of_week <- all_trips_v2 %>%
+   group_by(day_of_week, user_type) %>%
+   summarise("number_of_rides" = n(),
+     "mean" = hms::as_hms(mean(trip_duration)), 
+     "median" = hms::as_hms(median(trip_duration)),
+     "min" = hms::as_hms(min(trip_duration)),
+     "max" = hms::as_hms(max(trip_duration))) %>%
+  arrange(factor(day_of_week, levels = level_order), user_type)
+trips_by_day_of_week
+```
+
+```{r echo=FALSE}
+ggplot(trips_by_day_of_week,aes(x = day_of_week, y = number_of_rides, fill = user_type)) +
+  geom_col(position = "dodge") +
+  labs(x = '', y = 'Number of Rides') +
+  scale_x_discrete(limits =level_order)
+
+ggplot(trips_by_day_of_week,aes(x = day_of_week, y = mean, fill = user_type)) +
+  geom_col(position = "dodge") +
+  labs(x = '', y = 'Average Trip Duration') +
+  scale_x_discrete(limits =level_order)
+```
+
+
+# Data Analysis: Time of Year
+
+Retrieve statistics for **number of rides** and **trip duration** grouped by **user type** and **month**.
+```{r echo=FALSE}
+trips_by_month <- all_trips_v2 %>%
+   group_by(month, user_type) %>%
+   summarise("number_of_rides" = n(),
+     "mean" = hms::as_hms(mean(trip_duration)), 
+     "median" = hms::as_hms(median(trip_duration)),
+     "min" = hms::as_hms(min(trip_duration)),
+     "max" = hms::as_hms(max(trip_duration)))
+trips_by_month
+```
+
+```{r echo=FALSE}
+ggplot(trips_by_month,aes(x = month, y = number_of_rides, fill = user_type)) +
+  geom_col(position = "dodge") +
+  labs(x = 'Month', y = 'Number of Rides')
+
+ggplot(trips_by_month,aes(x = month, y = mean, fill = user_type)) +
+  geom_col(position = "dodge") +
+  labs(x = 'Month', y = 'Average Trip Duration')
+  
+```
+
+# Data Analysis: Time of Day
+
+Retrieve statistics for **number of rides** and **trip duration** grouped by **user type** and **hour of the day**.
+
+```{r echo=FALSE}
+trips_by_time_of_day <- all_trips_v2 |> 
+  group_by(hour, user_type) |>
+  summarise("number_of_rides" = n(),
+     "mean" = hms::as_hms(mean(trip_duration)), 
+     "median" = hms::as_hms(median(trip_duration)),
+     "min" = hms::as_hms(min(trip_duration)),
+     "max" = hms::as_hms(max(trip_duration)))
+trips_by_time_of_day
+```
+
+```{r echo=FALSE}
+ggplot(trips_by_time_of_day,aes(x = hour
+                                , y = number_of_rides
+                                , fill = user_type)) +
+  geom_col(position = "dodge") +
+  labs(x = 'Hour of Day', y = 'Number of Rides') + 
+  annotate(geom = "text", x = 8, y = 300000, label='8 AM') + 
+  annotate(geom = "text", x = 17, y = 400000, label='5 PM')
+
+ggplot(trips_by_time_of_day,aes(x = hour, y = mean, fill = user_type)) +
+  geom_col(position = "dodge") +
+  labs(x = 'Hour of Day', y = 'Average Trip Duration')
+```
